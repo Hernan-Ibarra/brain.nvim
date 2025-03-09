@@ -1,4 +1,4 @@
-# brain.nvim
+# 🧠 brain.nvim
 
 Write down ideas before they vanish, without disrupting your workflow.
 
@@ -106,4 +106,10 @@ When moving through your notes with `:BrainOrganize` you may think a note is no 
 :call delete(expand('%')) | argdelete % | silent! prev | bdelete! #
 ```
 
-If you find yourself using this frequently, you can define a keyboard mapping to a Lua function.
+If you find yourself using this frequently, you can again define a user command. To delete all of your notes you can either delete everything in the brain directory or do something like the following.
+
+```vim
+:BrainOrganize
+:argdo call delete(expand('%'))
+:qa
+```
