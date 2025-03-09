@@ -6,16 +6,20 @@ local M = {}
 local data_dir = vim.fn.stdpath("data")
 
 ---@type brain.Options
-local options = {
+local defaults = {
   ---@cast data_dir string
   brain_directory = data_dir .. "/brain",
 }
 
+---@type brain.Options
+local options = defaults
+
 ---@param opts? brain.Options
 M.setup = function(opts)
-  options = vim.tbl_deep_extend("force", options, opts or {})
+  options = vim.tbl_deep_extend("force", defaults, opts or {})
 end
 
+--- Adapted from oil.nvim source code
 ---@param dir string
 local mkdirp = function(dir)
   local mode = 484
@@ -34,89 +38,71 @@ local mkdirp = function(dir)
   end
 end
 
-local prompt_for_filename = function()
-  local prompt_buf = vim.api.nvim_create_buf(false, true)
-  assert(prompt_buf ~= 0, "Failed to prompt for filename")
-
-  vim.api.nvim_set_option_value("buftype", "prompt", { buf = prompt_buf })
-  vim.api.nvim_set_option_value("filetype", "text", { buf = prompt_buf })
-
-  vim.fn.prompt_setprompt(prompt_buf, "Enter filename: ")
-
-  local width = math.floor(vim.o.columns * 0.8)
-  local height = 2
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
-  local win_opts = {
-    relative = "editor",
-    width = width,
-    height = height,
-    row = row,
-    col = col,
-    style = "minimal",
-    border = "rounded",
-    title = "Brain Log",
-  }
-
-  local prompt_win = vim.api.nvim_open_win(prompt_buf, true, win_opts)
-  vim.cmd.startinsert()
-
-  vim.fn.prompt_setcallback(prompt_buf, function(input)
-    vim.api.nvim_win_close(prompt_win, true)
-    vim.api.nvim_buf_delete(prompt_buf, { force = true })
-
-    if not (input and input ~= "") then
-      return
-    end
-
-    assert(input:sub(1, 1) ~= "/", "Error: filename cannot begin with root '/'")
-
-    return input
-  end)
-end
-
 M.log = function()
-  local success, err = pcall(function()
-    vim.cmd("$tabnew")
-  end)
+  vim.cmd("$tabnew")
+
+  local success, _ = pcall(function(brain_dir)
+    if vim.fn.isdirectory(brain_dir) == 0 then
+      mkdirp(brain_dir)
+    end
+    vim.cmd.tcd(brain_dir)
+  end, options.brain_directory)
 
   if not success then
-    print("Error opening new tab: " .. err)
-    return
-  end
-
-  success, err = pcall(function()
-    vim.cmd.tcd(options.brain_directory)
-  end)
-
-  if not success then
-    print("Could not find brain directory: " .. err)
+    vim.notify("Could not find or could not create brain directory.", vim.log.levels.WARN)
   end
 
   local date = os.date()
   local buf = vim.api.nvim_get_current_buf()
   ---@cast date string
   vim.api.nvim_buf_set_name(buf, date)
-
   vim.api.nvim_create_autocmd("BufWritePre", {
     buffer = buf,
     callback = function()
-      ---@cast date string
-      vim.api.nvim_buf_set_lines(buf, 0, 0, true, { date })
-
-      local filename = prompt_for_filename()
-      filename = filename or vim.api.nvim_buf_get_name(buf)
-
-      local brain_dir = options.brain_directory
-      local brain_dir_last_char = brain_dir:sub(#brain_dir, #brain_dir)
-      if brain_dir_last_char ~= "/" then
-        brain_dir = brain_dir .. "/"
-      end
-
-      vim.api.nvim_buf_set_name(buf, brain_dir .. filename)
+      vim.api.nvim_buf_set_lines(buf, 0, 0, true, { date, "" })
     end,
     once = true,
   })
+  vim.cmd.startinsert()
+end
+
+M.organize = function()
+  local previous_wd = vim.fn.getcwd(0)
+  vim.cmd.lcd(options.brain_directory)
+
+  local brain_logs = vim.fn.globpath(options.brain_directory, "*")
+
+  if not (brain_logs and #brain_logs > 0) then
+    vim.notify("Nothing in brain directory", vim.log.levels.INFO)
+    return
+  end
+
+  local success, error = pcall(vim.cmd.arglocal, "*")
+  if not success then
+    vim.cmd.lcd(previous_wd)
+    vim.notify("Could not open files in brain directory: " .. error, vim.log.levels.ERROR)
+  end
+end
+
+M.add = function(buf)
+  buf = buf or vim.api.nvim_get_current_buf()
+  local date = os.date()
+  ---@cast date string
+
+  local new_buf = vim.api.nvim_create_buf(false, false)
+
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  vim.api.nvim_buf_set_lines(new_buf, 0, -1, false, { date, "", unpack(lines) })
+
+  local path = vim.api.nvim_buf_get_name(buf)
+  local filename = vim.fn.fnamemodify(path, ":t")
+
+  vim.api.nvim_buf_call(new_buf, function()
+    vim.cmd.cd(options.brain_directory)
+    vim.cmd.write(filename)
+  end)
+
+  vim.api.nvim_buf_delete(new_buf, {})
 end
 
 return M

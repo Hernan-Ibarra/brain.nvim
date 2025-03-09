@@ -4,16 +4,106 @@ Write down ideas before they vanish, without disrupting your workflow.
 
 ## Use
 
-The `:Brain Log` command is basically `:tabnew` but writing the buffer will
+The 'brain directory' (configurable) is the place where all your fleeting thoughts will live until you have time for them.
 
-- add a timestamp to the file;
-- prompt you to choose a filename or go with a default one; and
-- save the file to the 'brain directory'.
+The `:BrainLog` command is basically `:$tabnew` but it
 
-Running `:Brain Organize` will append everything in the 'brain directory' to the local argument list (see [:h argument-list](https://neovim.io/doc/user/editing.html#_3.-the-argument-list) and [:h :arglocal](https://neovim.io/doc/user/editing.html#_local-argument-list)). Move through your notes with `:next` and `:prev`.
+- sets the tab-local working directory to be the brain directory (see [:h 22.2](https://neovim.io/doc/user/usr_22.html#_tab-local-directory))
+- adds a timestamp to the file on write.
 
-When you are done with a file run `:Brain Delete` to delete the file and close the buffer.
+Running `:BrainOrganize` will set the local argument list to be everything in the brain directory (see [:h 07.2](https://neovim.io/doc/user/usr_07.html#_a-list-of-files), [:h argument-list](https://neovim.io/doc/user/editing.html#_3.-the-argument-list), and [:h :arglocal](https://neovim.io/doc/user/editing.html#_local-argument-list)). Move through your notes with `:next` and `:prev`.
 
-You can add a file to your brain directory with `:Brain Add`.
+You can add a current buffer to your brain directory with `:BrainAdd`.
 
 ## Configuration
+
+Everything should work out of the box. If you want to change the brain directory, here is how to do it with [lazy](https://github.com/folke/lazy.nvim)
+
+```lua
+{
+  "Hernan-Ibarra/brain.nvim",
+  -- This is the default; no need to call opts.
+  opts = {
+    -- Use absolute, fully expanded paths
+    brain_directory = vim.fn.stdpath("data") .. "/brain"
+  }
+}
+```
+
+## Tips
+
+Here are some tips for using this plugin. I didn't include these commands as part of the plugin because they are helpful in Neovim more generally.
+
+<details>
+  <summary>Click for short version</summary><!-- --+ -->
+
+```lua
+-- I have this in my configuration.
+local save_and_quit = function(opts)
+  vim.cmd.saveas {
+    args = { opts.fargs[1] },
+    bang = opts.bang,
+  }
+  vim.cmd.quit { bang = opts.bang }
+end
+
+vim.api.nvim_create_user_command('Squit', save_and_quit, {
+  nargs = 1,
+  desc = 'Save and quit the current buffer under a different filename',
+  complete = 'file',
+})
+
+local delete_file = function()
+  local arglist_length = vim.fn.argc()
+  local arglist_index = vim.fn.argidx()
+
+  local buf = vim.api.nvim_get_current_buf()
+  local full_path = vim.api.nvim_buf_get_name(buf)
+  vim.fn.delete(full_path)
+
+  vim.cmd.argdelete '%'
+  vim.api.nvim_buf_delete(buf, { force = true })
+
+  if arglist_length == 1 then
+    return
+  end
+
+  if arglist_index == arglist_length - 1 then
+    vim.cmd.argument(1)
+    return
+  end
+
+  vim.cmd.argument(arglist_index + 1)
+end
+
+vim.api.nvim_create_user_command('Delete', delete_file, {
+  desc = 'Delete the current file and buffer',
+})
+```
+
+<!-- --_ -->
+</details>
+
+### Overwrite default filename
+
+After `:BrainLog`, the new buffer will use the current date as a filename. You can use `:wq` when you are done writing to go back to your previous buffer.
+
+If you want to change the name of the buffer and write it at the same time, use `:saveas`. Here is a typical workflow.
+
+```vim
+:BrainLog
+" Write my brilliant idea about dogs
+:sav dogs.txt | q
+```
+
+Note that `:w dogs.txt | q` would not have worked. To save on keystrokes you could define a user command that does this.
+
+### Delete and move on
+
+When moving through your notes with `:BrainOrganize` you may think a note is no longer relevant. In that case you want to delete the file and the buffer. You can do this in one Ex command (four, really).
+
+```vim
+:call delete(expand('%')) | argdelete % | silent! prev | bdelete! #
+```
+
+If you find yourself using this frequently, you can define a keyboard mapping to a Lua function.
