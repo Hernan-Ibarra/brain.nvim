@@ -38,6 +38,40 @@ local mkdirp = function(dir)
   end
 end
 
+---@return { pretty: string, fname: string } date
+local get_date = function()
+  local now = os.date("*t")
+
+  local fname = ("%s-%.2d-%.2d_%.2d-%.2d-%.2d"):format(now.year, now.month, now.day, now.hour, now.min, now.sec)
+
+  local weekdays = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" }
+  local months = {
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  }
+
+  local pretty = ("%s %.2d %s %.2d:%.2d:%.2d %s"):format(
+    weekdays[now.wday],
+    now.day,
+    months[now.month],
+    now.hour,
+    now.min,
+    now.sec,
+    now.year
+  )
+  return { pretty = pretty, fname = fname }
+end
+
 M.log = function()
   vim.cmd("$tabnew")
 
@@ -52,14 +86,14 @@ M.log = function()
     vim.notify("Could not find or could not create brain directory.", vim.log.levels.WARN)
   end
 
-  local date = os.date()
+  local date = get_date()
   local buf = vim.api.nvim_get_current_buf()
-  ---@cast date string
-  vim.api.nvim_buf_set_name(buf, date)
+  vim.api.nvim_buf_set_name(buf, date.fname)
+
   vim.api.nvim_create_autocmd("BufWritePre", {
     buffer = buf,
     callback = function()
-      vim.api.nvim_buf_set_lines(buf, 0, 0, true, { date, "" })
+      vim.api.nvim_buf_set_lines(buf, 0, 0, true, { date.pretty, "" })
     end,
     once = true,
   })
@@ -86,13 +120,11 @@ end
 
 M.add = function(buf)
   buf = buf or vim.api.nvim_get_current_buf()
-  local date = os.date()
-  ---@cast date string
-
+  local date = get_date()
   local new_buf = vim.api.nvim_create_buf(false, false)
 
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  vim.api.nvim_buf_set_lines(new_buf, 0, -1, false, { date, "", unpack(lines) })
+  vim.api.nvim_buf_set_lines(new_buf, 0, -1, false, { date.pretty, "", unpack(lines) })
 
   local path = vim.api.nvim_buf_get_name(buf)
   local filename = vim.fn.fnamemodify(path, ":t")
