@@ -123,11 +123,7 @@ local delete_current_file_and_buffer = function(opts)
 
   vim.api.nvim_buf_delete(buf, { force = true })
 
-  if not argdelete_success then
-    return
-  end
-
-  if arglist_length <= 1 then
+  if (not argdelete_success) or arglist_length <= 1 then
     return
   end
 
