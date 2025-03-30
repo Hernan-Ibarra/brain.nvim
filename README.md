@@ -6,14 +6,12 @@ Write down ideas before they vanish, without disrupting your workflow.
 
 The 'brain directory' (configurable) is the place where all your fleeting thoughts will live until you have time for them.
 
-The `:BrainLog` command is basically `:$tabnew` but it
+The `:BrainDump` command is basically `:$tabnew` but it
 
 - sets the tab-local working directory to be the brain directory (see [:h 22.2](https://neovim.io/doc/user/usr_22.html#_tab-local-directory))
 - adds a timestamp to the file on write.
 
 Running `:BrainOrganize` will set the local argument list to be everything in the brain directory (see [:h 07.2](https://neovim.io/doc/user/usr_07.html#_a-list-of-files), [:h argument-list](https://neovim.io/doc/user/editing.html#_3.-the-argument-list), and [:h :arglocal](https://neovim.io/doc/user/editing.html#_local-argument-list)). Move through your notes with `:next` and `:prev`.
-
-You can add a current buffer to your brain directory with `:BrainAdd`.
 
 ## Configuration
 
@@ -25,7 +23,7 @@ Everything should work out of the box. If you want to change the brain directory
   -- This is the default; no need to call opts.
   opts = {
     -- Use absolute, fully expanded paths
-    brain_directory = vim.fn.stdpath("data") .. "/brain"
+    brain_directory = vim.fs.joinpath(vim.fn.stdpath("data"), "brain")
   }
 }
 ```
@@ -36,12 +34,12 @@ Here are some tips for using this plugin. I didn't include these commands as par
 
 ### Overwrite default filename
 
-After `:BrainLog`, the new buffer will use the current date as a filename. You can use `:wq` when you are done writing to go back to your previous buffer.
+After `:BrainDump`, the new buffer will use the current date as a filename. You can use `:wq` when you are done writing to go back to your previous buffer.
 
 If you want to change the name of the buffer and write it at the same time, use `:saveas`. Here is a typical workflow.
 
 ```vim
-:BrainLog
+:BrainDump
 " Write my brilliant idea about dogs
 :sav dogs.txt | q
 ```

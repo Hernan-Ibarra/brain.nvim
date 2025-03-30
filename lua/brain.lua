@@ -8,7 +8,7 @@ local data_dir = vim.fn.stdpath("data")
 ---@type brain.Options
 local defaults = {
   ---@cast data_dir string
-  brain_directory = data_dir .. "/brain",
+  brain_directory = vim.fs.joinpath(data_dir, "brain")
 }
 
 ---@type brain.Options
@@ -72,18 +72,20 @@ local get_date = function()
   return { pretty = pretty, fname = fname }
 end
 
-M.log = function()
+M.dump = function()
   vim.cmd("$tabnew")
+
+  local dump_dir = options.brain_directory
 
   local success, _ = pcall(function(brain_dir)
     if vim.fn.isdirectory(brain_dir) == 0 then
       mkdirp(brain_dir)
     end
     vim.cmd.tcd(brain_dir)
-  end, options.brain_directory)
+  end, dump_dir)
 
   if not success then
-    vim.notify("Could not find or could not create brain directory.", vim.log.levels.WARN)
+    vim.notify("Could not find or could not create brain dump directory.", vim.log.levels.WARN)
   end
 
   local date = get_date()
@@ -116,25 +118,6 @@ M.organize = function()
     vim.cmd.lcd(previous_wd)
     vim.notify("Could not open files in brain directory: " .. error, vim.log.levels.ERROR)
   end
-end
-
-M.add = function(buf)
-  buf = buf or vim.api.nvim_get_current_buf()
-  local date = get_date()
-  local new_buf = vim.api.nvim_create_buf(false, false)
-
-  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  vim.api.nvim_buf_set_lines(new_buf, 0, -1, false, { date.pretty, "", unpack(lines) })
-
-  local path = vim.api.nvim_buf_get_name(buf)
-  local filename = vim.fn.fnamemodify(path, ":t")
-
-  vim.api.nvim_buf_call(new_buf, function()
-    vim.cmd.cd(options.brain_directory)
-    vim.cmd.write(filename)
-  end)
-
-  vim.api.nvim_buf_delete(new_buf, {})
 end
 
 return M
